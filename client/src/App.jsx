@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
+import Landing from "./pages/Landing.jsx";
 import RenterDash from "./pages/RenterDash.jsx";
 import OwnerDash from "./pages/OwnerDash.jsx";
 import AdminDash from "./pages/AdminDash.jsx";
@@ -17,10 +16,10 @@ function Protected({ children }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Landing />} />
 
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Landing initialAuthMode="login" />} />
+      <Route path="/register" element={<Landing initialAuthMode="register" />} />
 
       <Route
         path="/renter"
@@ -47,7 +46,7 @@ export default function App() {
         }
       />
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
