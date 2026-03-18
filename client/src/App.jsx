@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import Landing from "./pages/Landing.jsx";
-import RenterDash from "./pages/RenterDash.jsx";
-import OwnerDash from "./pages/OwnerDash.jsx";
-import AdminDash from "./pages/AdminDash.jsx";
+import Landing from "./pages/public/LandingPage.jsx";
+import RenterDash from "./pages/renter/RenterDashboard.jsx";
+import OwnerDash from "./pages/owner/OwnerDashboard.jsx";
+import AdminDash from "./pages/admin/AdminDashboard.jsx";
 import { initAuth, getToken } from "./lib/auth";
 
 initAuth();

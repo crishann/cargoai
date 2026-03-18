@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "../lib/api";
-import { saveToken } from "../lib/auth";
+import { api } from "../../lib/api";
+import { saveToken } from "../../lib/auth";
 
 const highlights = [
   {
@@ -54,7 +54,7 @@ const ownerBenefits = [
   "Reach more renters with a cleaner storefront",
 ];
 
-export default function Landing({ initialAuthMode = null }) {
+export default function LandingPage({ initialAuthMode = null }) {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const [authMode, setAuthMode] = useState(initialAuthMode);
@@ -113,8 +113,8 @@ export default function Landing({ initialAuthMode = null }) {
         <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_center,_rgba(255,255,255,0.22)_1px,_transparent_1px)] [background-size:22px_22px]" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-[linear-gradient(180deg,transparent_0%,rgba(255,255,255,0.18)_100%)]" />
 
-        <div className="relative mx-auto max-w-7xl px-6 pb-24 pt-8 sm:px-10 lg:px-12">
-          <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 lg:px-12">
+          <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <Link to="/" className="flex items-center gap-3 text-white">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/95 text-lg shadow-lg shadow-blue-950/20">
                 car
@@ -125,7 +125,7 @@ export default function Landing({ initialAuthMode = null }) {
               </div>
             </Link>
 
-            <nav className="flex items-center gap-3">
+            <nav className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={() => nav("/login")}
@@ -143,12 +143,12 @@ export default function Landing({ initialAuthMode = null }) {
             </nav>
           </header>
 
-          <div className="mt-16 grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+          <div className="mt-12 grid gap-8 sm:mt-16 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div className="max-w-3xl">
               <span className="inline-flex rounded-full border border-white/20 bg-white/12 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-blue-50 backdrop-blur">
                 Premium Car Rental Service
               </span>
-              <h1 className="mt-6 text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 text-3xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
                 Find your perfect ride
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-blue-50/92 sm:text-lg">
@@ -191,7 +191,7 @@ export default function Landing({ initialAuthMode = null }) {
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-6 text-sm text-blue-50/92">
+              <div className="mt-8 grid gap-3 sm:grid-cols-3 sm:gap-4">
                 <Stat label="Verified vehicles" value="2.5k+" />
                 <Stat label="Cities served" value="60+" />
                 <Stat label="Support coverage" value="24/7" />
@@ -252,7 +252,7 @@ export default function Landing({ initialAuthMode = null }) {
         </div>
       </section>
 
-      <main className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-12">
+      <main className="mx-auto max-w-7xl px-4 py-14 sm:px-8 sm:py-16 lg:px-12">
         <section className="grid gap-5 md:grid-cols-3">
           {highlights.map(({ title, text, icon: Icon }) => (
             <article
@@ -269,7 +269,7 @@ export default function Landing({ initialAuthMode = null }) {
         </section>
 
         <section className="mt-16">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--cargo-blue-bright)]">
                 Featured Vehicles
@@ -355,8 +355,8 @@ export default function Landing({ initialAuthMode = null }) {
       </main>
 
       {authMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[1.75rem] bg-white p-6 text-[var(--cargo-ink)] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="my-6 w-full max-w-md rounded-[1.75rem] bg-white p-5 text-[var(--cargo-ink)] shadow-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold text-slate-900">
@@ -410,14 +410,7 @@ export default function Landing({ initialAuthMode = null }) {
             ) : (
               <form onSubmit={onRegister} className="mt-5 space-y-4">
                 <Field label="Role">
-                  <select
-                    className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-[var(--cargo-blue-bright)]"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  >
-                    <option value="renter">Renter</option>
-                    <option value="owner">Owner</option>
-                  </select>
+                  <RoleSelector value={role} onChange={setRole} />
                 </Field>
                 <Field label="Username">
                   <input
@@ -508,6 +501,36 @@ function Field({ label, children }) {
       {label}
       {children}
     </label>
+  );
+}
+
+function RoleSelector({ value, onChange }) {
+  const roles = [
+    { value: "renter", label: "Renter" },
+    { value: "owner", label: "Owner" },
+  ];
+
+  return (
+    <div className="mt-1 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+      {roles.map((roleOption) => {
+        const isActive = value === roleOption.value;
+
+        return (
+          <button
+            key={roleOption.value}
+            type="button"
+            onClick={() => onChange(roleOption.value)}
+            className={`rounded-[1rem] px-4 py-3 text-sm font-semibold transition ${
+              isActive
+                ? "bg-[var(--cargo-blue-deep)] text-white shadow-sm"
+                : "bg-transparent text-slate-600 hover:bg-white/80"
+            }`}
+          >
+            {roleOption.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
