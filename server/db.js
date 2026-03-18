@@ -17,6 +17,7 @@ function createPoolConfig() {
     return {
       connectionString: DATABASE_URL,
       ssl: DB_SSL === "false" ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
     };
   }
 
@@ -27,6 +28,7 @@ function createPoolConfig() {
     password: PGPASSWORD,
     database: PGDATABASE,
     ssl: DB_SSL === "true" ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
   };
 }
 

@@ -5,6 +5,10 @@
 @layer base {
   :root {
     --cargo-blue: #20515d;
+    --cargo-blue-bright: #2563eb;
+    --cargo-blue-deep: #1e3a8a;
+    --cargo-cream: #f8fafc;
+    --cargo-ink: #0f172a;
     --cargo-white: #ffffff;
     --cargo-gray: #8d8d8d;
   }
@@ -18,9 +22,22 @@
   body {
     margin: 0;
     font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
-    background: linear-gradient(135deg, #20515d 0%, #1a434d 100%);
-    color: var(--cargo-white);
+    background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 26%),
+      linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);
+    color: var(--cargo-ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 }
