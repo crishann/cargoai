@@ -1,0 +1,21 @@
+# dependencies
+node_modules
+client/node_modules
+server/node_modules
+
+# env
+.env
+client/.env
+server/.env
+
+# builds
+dist
+client/dist
+server/dist
+build
+client/build
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
