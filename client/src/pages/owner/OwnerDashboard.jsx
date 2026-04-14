@@ -1,104 +1,87 @@
-const ownerStats = [
-  { value: "8", label: "Listed Vehicles" },
-  { value: "14", label: "Open Requests" },
-  { value: "P48k", label: "Monthly Revenue" },
-];
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { clearToken, getAuthUser } from "../../lib/auth";
 
-const ownerActions = [
-  "Add or update vehicle details with cleaner listing cards.",
-  "Review pending bookings and confirm trip schedules faster.",
-  "Track earnings, records, and account health from one dashboard.",
+const ownerNavItems = [
+  { label: "Dashboard", to: "/owner" },
+  { label: "Vehicle Management", to: "/owner/vehicle-management" },
+  { label: "Vehicle List", to: "/owner/vehicle-list" },
+  { label: "Booking Calendar", to: "/owner/booking-calendar" },
+  { label: "Payment Records", to: "/owner/payment-records" },
+  { label: "Contract Releasing", to: "/owner/contract-releasing" },
+  { label: "Subscription Management", to: "/owner/subscription-management" },
+  { label: "Transaction History", to: "/owner/transaction-history" },
+  { label: "Account Status", to: "/owner/account-status" },
 ];
 
 export default function OwnerDashboard() {
+  const navigate = useNavigate();
+  const authUser = getAuthUser();
+  const currentUserLabel = authUser?.username || "User";
+
+  function handleLogout() {
+    clearToken();
+    navigate("/", { replace: true });
+  }
+
   return (
-    <div className="min-h-screen bg-[var(--cargo-cream)] px-4 py-6 text-[var(--cargo-ink)] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <section className="overflow-hidden rounded-[2rem] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:p-8 lg:p-10">
-          <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr] xl:items-center">
+    <div className="min-h-screen bg-[var(--cargo-cream)] text-[var(--cargo-ink)]">
+      <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
+        <aside className="border-b border-slate-200 bg-white lg:min-h-screen lg:border-b-0 lg:border-r">
+          <div className="px-5 py-5">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--cargo-blue-bright)]">
-                Owner Dashboard
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold leading-tight text-slate-900 sm:text-4xl lg:text-5xl">
-                Manage listings and bookings with a cleaner control panel
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-                This dashboard is designed to stay easy to scan on mobile while giving you more
-                room for metrics, actions, and business visibility on desktop.
-              </p>
+              <h1 className="text-lg font-semibold tracking-tight text-slate-900">CarGoAI</h1>
+              <p className="mt-1 text-sm text-slate-500">{currentUserLabel} workspace</p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-3">
-              {ownerStats.map((stat) => (
-                <article
-                  key={stat.label}
-                  className="rounded-[1.5rem] bg-[linear-gradient(135deg,_#eff6ff,_#dbeafe)] p-5"
-                >
-                  <p className="text-2xl font-semibold text-[var(--cargo-blue-deep)]">{stat.value}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
-                    {stat.label}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+            {/* <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <input
+                type="text"
+                placeholder="Search"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+            </div> */}
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--cargo-blue-bright)]">
-              What to focus on
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">High-impact actions</h2>
+            <nav className="mt-5">
+              <ul className="space-y-1.5">
+                {ownerNavItems.map((item) => (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      end={item.to === "/owner"}
+                      className={({ isActive }) =>
+                        `block w-full rounded-2xl px-4 py-3 text-left text-sm transition ${
+                          isActive
+                            ? "border border-blue-100 bg-[linear-gradient(135deg,_#ffffff,_#eff6ff)] font-semibold text-[var(--cargo-blue-deep)] shadow-[0_10px_24px_rgba(37,99,235,0.08)]"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
-            <div className="mt-6 space-y-3">
-              {ownerActions.map((item) => (
-                <div key={item} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-                  {item}
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--cargo-blue-bright)]">
-                  Owner Tools
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                  Keep the workflow organized
-                </h2>
-              </div>
+            <div className="mt-6 border-t border-slate-200 pt-4">
               <button
                 type="button"
-                className="rounded-full bg-[var(--cargo-blue-deep)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+                onClick={handleLogout}
+                className="block w-full rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-100"
               >
-                Add vehicle
+                Logout
               </button>
             </div>
+          </div>
+        </aside>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {[
-                "Vehicle Management",
-                "Booking Calendar",
-                "Payment Records",
-                "Subscription Status",
-              ].map((tool) => (
-                <div
-                  key={tool}
-                  className="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-5"
-                >
-                  <h3 className="text-base font-semibold text-slate-900">{tool}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    A dedicated area for this module can expand here as you build the next pages.
-                  </p>
-                </div>
-              ))}
+        <main className="min-w-0 bg-[linear-gradient(180deg,_rgba(255,255,255,0.5)_0%,_transparent_100%)]">
+          <div className="p-5 sm:p-6">
+            <div className="min-h-[calc(100vh-140px)] rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+              <Outlet />
             </div>
-          </article>
-        </section>
+          </div>
+        </main>
       </div>
     </div>
   );

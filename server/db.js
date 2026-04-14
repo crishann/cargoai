@@ -1,52 +1,69 @@
-const { Pool } = require("pg");
+const mysql = require("mysql2/promise");
 
 const {
-  DATABASE_URL,
-  PGHOST = "localhost",
-  PGPORT = "5432",
-  PGUSER = "postgres",
-  PGPASSWORD = "",
-  PGDATABASE = "postgres",
-  DB_SSL = "true",
+  DB_HOST = "127.0.0.1",
+  DB_PORT = "3306",
+  DB_USER = "root",
+  DB_PASSWORD = "",
+  DB_NAME = "cargoai",
 } = process.env;
 
 let pool;
+let databaseReady = false;
+let initPromise = null;
+let lastDatabaseError = null;
 
-function createPoolConfig() {
-  if (DATABASE_URL) {
-    return {
-      connectionString: DATABASE_URL,
-      ssl: DB_SSL === "false" ? false : { rejectUnauthorized: false },
-      connectionTimeoutMillis: 10000,
-    };
-  }
-
+function createPool() {
   return {
-    host: PGHOST,
-    port: Number(PGPORT),
-    user: PGUSER,
-    password: PGPASSWORD,
-    database: PGDATABASE,
-    ssl: DB_SSL === "true" ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10000,
+    host: DB_HOST,
+    port: Number(DB_PORT),
+    user: DB_USER,
+    password: DB_PASSWORD,
+    database: DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    connectTimeout: 10000,
   };
 }
 
 async function initDatabase() {
-  pool = new Pool(createPoolConfig());
+  if (databaseReady && pool) return pool;
+  if (initPromise) return initPromise;
 
-  await pool.query("SELECT 1");
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS public.cargo_users (
-      id BIGSERIAL PRIMARY KEY,
-      username VARCHAR(50) NOT NULL UNIQUE,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role VARCHAR(10) NOT NULL DEFAULT 'renter',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      CONSTRAINT cargo_users_role_check CHECK (role IN ('renter', 'owner', 'admin'))
-    )
-  `);
+  pool = mysql.createPool(createPool());
+  initPromise = (async () => {
+    try {
+      await pool.query("SELECT 1");
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS \`user\` (
+          user_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          username VARCHAR(50) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          role ENUM('renter', 'owner', 'admin') NOT NULL DEFAULT 'renter',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id),
+          UNIQUE KEY uq_user_username (username),
+          UNIQUE KEY uq_user_email (email)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      databaseReady = true;
+      lastDatabaseError = null;
+      return pool;
+    } catch (error) {
+      databaseReady = false;
+      lastDatabaseError = error;
+      initPromise = null;
+      if (pool) {
+        await pool.end().catch(() => {});
+      }
+      pool = null;
+      throw error;
+    }
+  })();
+
+  return initPromise;
 }
 
 function getPool() {
@@ -54,4 +71,12 @@ function getPool() {
   return pool;
 }
 
-module.exports = { initDatabase, getPool };
+function isDatabaseReady() {
+  return databaseReady;
+}
+
+function getLastDatabaseError() {
+  return lastDatabaseError;
+}
+
+module.exports = { initDatabase, getPool, isDatabaseReady, getLastDatabaseError };

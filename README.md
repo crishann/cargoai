@@ -11,9 +11,12 @@ npm install
 npm run dev
 
 ## Database setup
-- Use your Supabase Postgres connection string.
+- Use XAMPP MySQL.
 - Configure `server/.env`:
-  - `DATABASE_URL` (Supabase transaction/session pooler URL)
-  - `DB_SSL` (`true` for Supabase)
+  - `DB_HOST` (`127.0.0.1` for XAMPP)
+  - `DB_PORT` (`3306` by default)
+  - `DB_USER` (`root` by default in XAMPP)
+  - `DB_PASSWORD` (blank by default in XAMPP unless you changed it)
+  - `DB_NAME` (`cargoai`)
   - `JWT_SECRET`
-- The server auto-creates the `public.cargo_users` table on startup.
+- Run the SQL in `server/sql/xampp_cargoai.sql` in phpMyAdmin, or let the server auto-create the `cargo_users` table after the database exists.

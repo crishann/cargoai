@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { initDatabase } = require("./db");
+const { initDatabase, isDatabaseReady, getLastDatabaseError } = require("./db");
 const authRoutes = require("./routes.auth");
 
 const app = express();
@@ -16,7 +16,12 @@ app.use(
 app.use(express.json());
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
+  const dbError = getLastDatabaseError();
+  res.json({
+    ok: true,
+    databaseReady: isDatabaseReady(),
+    databaseError: dbError ? dbError.message : null,
+  });
 });
 
 app.use("/api/auth", authRoutes);
@@ -26,14 +31,15 @@ app.use((req, res) => {
 });
 
 async function start() {
+  app.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
+  });
+
   try {
     await initDatabase();
-    app.listen(PORT, () => {
-      console.log(`Server listening on http://localhost:${PORT}`);
-    });
+    console.log("Database connected");
   } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
+    console.error("Database unavailable during startup:", error.message);
   }
 }
 

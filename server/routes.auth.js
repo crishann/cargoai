@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { getPool } = require("./db");
+const { getPool, initDatabase } = require("./db");
 
 const router = express.Router();
 
@@ -9,9 +9,25 @@ const JWT_SECRET = process.env.JWT_SECRET || "change_me";
 
 function issueToken(user) {
   return jwt.sign(
-    { sub: user.id, username: user.username, role: user.role },
+    { sub: user.id, username: user.username, role: user.role, email: user.email },
     JWT_SECRET,
     { expiresIn: "7d" }
+  );
+}
+
+function isDatabaseUnavailableError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+
+  return (
+    code === "EACCES" ||
+    code === "ETIMEDOUT" ||
+    message.includes("database not initialized") ||
+    message.includes("database unavailable") ||
+    message.includes("connection timeout") ||
+    message.includes("connection terminated") ||
+    message.includes("connect timeout") ||
+    message.includes("timed out")
   );
 }
 
@@ -30,33 +46,79 @@ router.post("/register", async (req, res) => {
   const normalizedUsername = String(username).trim();
 
   try {
+    await initDatabase();
     const pool = getPool();
-    const existing = await pool.query(
-      "SELECT id FROM public.cargo_users WHERE username = $1 OR email = $2 LIMIT 1",
-      [normalizedUsername, normalizedEmail]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ message: "username or email already exists" });
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const [existing] = await connection.query(
+        "SELECT user_id FROM `user` WHERE username = ? OR email = ? LIMIT 1",
+        [normalizedUsername, normalizedEmail]
+      );
+      if (existing.length > 0) {
+        await connection.rollback();
+        return res.status(409).json({ message: "username or email already exists" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const [result] = await connection.query(
+        `INSERT INTO \`user\` (username, email, password_hash, role)
+         VALUES (?, ?, ?, ?)`,
+        [normalizedUsername, normalizedEmail, passwordHash, normalizedRole]
+      );
+
+      const userId = result.insertId;
+
+      if (normalizedRole === "owner") {
+        await connection.query(
+          `INSERT INTO car_owners (
+             user_id,
+             subscription_status,
+             subscription_tier,
+             company_name,
+             date_approved,
+             subscription_start_date,
+             subscription_end_date
+           )
+           VALUES (?, 'inactive', NULL, NULL, NULL, NULL, NULL)`,
+          [userId]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO car_renter (
+             user_id,
+             government_id,
+             address,
+             phone_number
+           )
+           VALUES (?, NULL, NULL, NULL)`,
+          [userId]
+        );
+      }
+
+      await connection.commit();
+
+      const user = {
+        id: userId,
+        username: normalizedUsername,
+        email: normalizedEmail,
+        role: normalizedRole,
+      };
+
+      return res.status(201).json({ token: issueToken(user), user });
+    } catch (error) {
+      await connection.rollback().catch(() => {});
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      `INSERT INTO public.cargo_users (username, email, password_hash, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [normalizedUsername, normalizedEmail, passwordHash, normalizedRole]
-    );
-
-    const user = {
-      id: result.rows[0].id,
-      username: normalizedUsername,
-      email: normalizedEmail,
-      role: normalizedRole,
-    };
-
-    return res.status(201).json({ token: issueToken(user), user });
   } catch (error) {
     console.error("Register error:", error);
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({ message: "database unavailable" });
+    }
     return res.status(500).json({ message: "server error" });
   }
 });
@@ -68,17 +130,17 @@ router.post("/login", async (req, res) => {
   }
 
   try {
+    await initDatabase();
     const pool = getPool();
     const identifier = String(usernameOrEmail).trim();
 
-    const result = await pool.query(
-      `SELECT id, username, email, password_hash, role
-       FROM public.cargo_users
-       WHERE username = $1 OR email = $2
+    const [rows] = await pool.query(
+      `SELECT user_id AS id, username, email, password_hash, role
+       FROM \`user\`
+       WHERE username = ? OR email = ?
        LIMIT 1`,
       [identifier, identifier.toLowerCase()]
     );
-    const rows = result.rows;
 
     if (rows.length === 0) return res.status(401).json({ message: "invalid credentials" });
 
@@ -96,6 +158,9 @@ router.post("/login", async (req, res) => {
     return res.json({ token: issueToken(safeUser), user: safeUser });
   } catch (error) {
     console.error("Login error:", error);
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({ message: "database unavailable" });
+    }
     return res.status(500).json({ message: "server error" });
   }
 });

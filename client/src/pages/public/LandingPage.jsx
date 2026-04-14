@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { saveAuthSession } from "../../lib/auth";
 import { api } from "../../lib/api";
-import { saveToken } from "../../lib/auth";
 
 const highlights = [
   {
@@ -15,7 +15,7 @@ const highlights = [
     icon: ShieldIcon,
   },
   {
-    title: "24/7 Support",
+    title: "24/7 Chatbot Support",
     text: "Get help anytime with guided assistance before, during, and after every trip.",
     icon: SupportIcon,
   },
@@ -83,27 +83,60 @@ export default function LandingPage({ initialAuthMode = null }) {
   async function onLogin(e) {
     e.preventDefault();
     setErr("");
+
     try {
-      const res = await api.post("/auth/login", { usernameOrEmail, password });
-      saveToken(res.data.token);
-      const nextRole = res.data.user?.role;
+      const { data } = await api.post("/auth/login", {
+        usernameOrEmail: usernameOrEmail.trim(),
+        password,
+      });
+      const nextUser = data.user;
+      const nextRole = nextUser?.role;
+
+      saveAuthSession({
+        token: data.token || "",
+        user: {
+          id: nextUser?.id,
+          username: nextUser?.username || nextUser?.email || "User",
+          role: nextRole || "renter",
+          email: nextUser?.email || "",
+        },
+      });
+
       if (nextRole === "owner") nav("/owner");
       else if (nextRole === "admin") nav("/admin");
       else nav("/renter");
     } catch (error) {
-      setErr(error?.response?.data?.message || "Login failed");
+      setErr(error?.response?.data?.message || error?.message || "Login failed");
     }
   }
 
   async function onRegister(e) {
     e.preventDefault();
     setErr("");
+
     try {
-      const res = await api.post("/auth/register", { username, email, password: regPassword, role });
-      saveToken(res.data.token);
-      nav(role === "owner" ? "/owner" : "/renter");
+      const { data } = await api.post("/auth/register", {
+        username: String(username).trim(),
+        email: String(email).trim().toLowerCase(),
+        password: regPassword,
+        role,
+      });
+      const nextUser = data.user;
+
+      saveAuthSession({
+        token: data.token,
+        user: {
+          id: nextUser?.id,
+          username: nextUser?.username || nextUser?.email || "User",
+          role: nextUser?.role || role,
+          email: nextUser?.email || "",
+        },
+      });
+
+      if (nextUser?.role === "admin") nav("/admin");
+      else nav((nextUser?.role || role) === "owner" ? "/owner" : "/renter");
     } catch (error) {
-      setErr(error?.response?.data?.message || "Register failed");
+      setErr(error?.response?.data?.message || error?.message || "Register failed");
     }
   }
 
@@ -190,12 +223,12 @@ export default function LandingPage({ initialAuthMode = null }) {
                   </button>
                 </div>
               </div>
-
+{/* 
               <div className="mt-8 grid gap-3 sm:grid-cols-3 sm:gap-4">
                 <Stat label="Verified vehicles" value="2.5k+" />
                 <Stat label="Cities served" value="60+" />
-                <Stat label="Support coverage" value="24/7" />
-              </div>
+                <Stat label="Chabot Support coverage" value="24/7" />
+              </div> */}
             </div>
 
             <div className="rounded-[2rem] border border-white/18 bg-white/12 p-6 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-md">
@@ -391,7 +424,7 @@ export default function LandingPage({ initialAuthMode = null }) {
                     className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-[var(--cargo-blue-bright)]"
                     value={usernameOrEmail}
                     onChange={(e) => setUsernameOrEmail(e.target.value)}
-                    placeholder="e.g. owner1 or owner1@mail.com"
+                    placeholder="username or you@email.com"
                   />
                 </Field>
                 <Field label="Password">
