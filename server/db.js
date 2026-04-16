@@ -1,4 +1,5 @@
 const mysql = require("mysql2/promise");
+const bcrypt = require("bcrypt");
 
 const {
   DB_HOST = "127.0.0.1",
@@ -7,6 +8,10 @@ const {
   DB_PASSWORD = "",
   DB_NAME = "cargoai",
 } = process.env;
+
+const SUPER_ADMIN_USERNAME = "sadmin123";
+const SUPER_ADMIN_PASSWORD = "sadmin123";
+const SUPER_ADMIN_EMAIL = "sadmin123@cargoai.local";
 
 let pool;
 let databaseReady = false;
@@ -48,6 +53,7 @@ async function initDatabase() {
           UNIQUE KEY uq_user_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
+      await ensureSuperAdmin(pool);
       databaseReady = true;
       lastDatabaseError = null;
       return pool;
@@ -64,6 +70,25 @@ async function initDatabase() {
   })();
 
   return initPromise;
+}
+
+async function ensureSuperAdmin(poolInstance) {
+  const [existingUsers] = await poolInstance.query(
+    "SELECT user_id FROM `user` WHERE username = ? LIMIT 1",
+    [SUPER_ADMIN_USERNAME]
+  );
+
+  if (existingUsers.length > 0) {
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
+
+  await poolInstance.query(
+    `INSERT INTO \`user\` (username, email, password_hash, role)
+     VALUES (?, ?, ?, 'admin')`,
+    [SUPER_ADMIN_USERNAME, SUPER_ADMIN_EMAIL, passwordHash]
+  );
 }
 
 function getPool() {

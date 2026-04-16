@@ -3,6 +3,7 @@ import { clearToken, getAuthUser } from "../../lib/auth";
 
 const ownerNavItems = [
   { label: "Dashboard", to: "/owner" },
+  { label: "Bookings", to: "/owner/bookings" },
   { label: "Vehicle Management", to: "/owner/vehicle-management" },
   { label: "Vehicle List", to: "/owner/vehicle-list" },
   { label: "Booking Calendar", to: "/owner/booking-calendar" },
@@ -16,7 +17,7 @@ const ownerNavItems = [
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const authUser = getAuthUser();
-  const currentUserLabel = authUser?.username || "User";
+  const currentUserLabel = authUser?.username || "Owner";
 
   function handleLogout() {
     clearToken();
@@ -24,65 +25,126 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--cargo-cream)] text-[var(--cargo-ink)]">
-      <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
-        <aside className="border-b border-slate-200 bg-white lg:min-h-screen lg:border-b-0 lg:border-r">
-          <div className="px-5 py-5">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-slate-900">CarGoAI</h1>
-              <p className="mt-1 text-sm text-slate-500">{currentUserLabel} workspace</p>
-            </div>
+    <div className="min-h-screen bg-[#eef1f4] p-3 text-slate-900 sm:p-4">
+      <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[2rem] border border-slate-200 bg-[#f8f8f7] shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+        <div className="border-b border-slate-200 bg-[#f3f3f1] p-4 lg:hidden">
+          <MobileHeader title="CarGoAI" subtitle={`${currentUserLabel} owner workspace`} />
+          <SearchBar />
+          <MobileNav items={ownerNavItems} />
+        </div>
 
-            {/* <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <input
-                type="text"
-                placeholder="Search"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-              />
-            </div> */}
-
-            <nav className="mt-5">
-              <ul className="space-y-1.5">
-                {ownerNavItems.map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      end={item.to === "/owner"}
-                      className={({ isActive }) =>
-                        `block w-full rounded-2xl px-4 py-3 text-left text-sm transition ${
-                          isActive
-                            ? "border border-blue-100 bg-[linear-gradient(135deg,_#ffffff,_#eff6ff)] font-semibold text-[var(--cargo-blue-deep)] shadow-[0_10px_24px_rgba(37,99,235,0.08)]"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                        }`
-                      }
-                    >
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            <div className="mt-6 border-t border-slate-200 pt-4">
+        <div className="lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
+          <aside className="hidden border-r border-slate-200 bg-[#f3f3f1] p-4 lg:block">
+            <DesktopSidebar title="CarGoAI" subtitle={`${currentUserLabel} owner workspace`} items={ownerNavItems} />
+            <div className="mt-5 border-t border-slate-200 pt-4">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="block w-full rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                className="flex w-full items-center justify-between rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
               >
-                Logout
+                <span>Logout</span>
+                <span>{">"}</span>
               </button>
             </div>
-          </div>
-        </aside>
+          </aside>
 
-        <main className="min-w-0 bg-[linear-gradient(180deg,_rgba(255,255,255,0.5)_0%,_transparent_100%)]">
-          <div className="p-5 sm:p-6">
-            <div className="min-h-[calc(100vh-140px)] rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+          <main className="p-4 sm:p-5 lg:p-6">
+            <div className="min-h-[620px] rounded-[1.75rem] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(226,232,240,0.8)] sm:p-5">
               <Outlet />
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
+  );
+}
+
+function MobileHeader({ title, subtitle }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-xs font-bold">
+          OW
+        </span>
+        <div>
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="text-xs text-slate-500">{subtitle}</p>
+        </div>
+      </div>
+      <span className="text-slate-400">+</span>
+    </div>
+  );
+}
+
+function SearchBar() {
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+      <input
+        type="text"
+        placeholder="Search"
+        className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+      />
+    </div>
+  );
+}
+
+function MobileNav({ items }) {
+  return (
+    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+      {items.map((item, index) => (
+        <div
+          key={item.to}
+          className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium ${
+            index === 0 ? "bg-white text-slate-900 shadow-sm" : "bg-transparent text-slate-500"
+          }`}
+        >
+          {item.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DesktopSidebar({ title, subtitle, items }) {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-xs font-bold">
+            OW
+          </span>
+          <div>
+            <p className="text-sm font-semibold">{title}</p>
+            <p className="text-xs text-slate-500">{subtitle}</p>
+          </div>
+        </div>
+        <span className="text-slate-400">+</span>
+      </div>
+
+      <SearchBar />
+
+      <nav className="mt-4">
+        <ul className="space-y-1">
+          {items.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.to === "/owner"}
+                className={({ isActive }) =>
+                  `flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    isActive
+                      ? "bg-white font-semibold text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:bg-white hover:text-slate-900"
+                  }`
+                }
+              >
+                <span className="h-2 w-2 rounded-full bg-current opacity-70" />
+                <span>{item.label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </>
   );
 }

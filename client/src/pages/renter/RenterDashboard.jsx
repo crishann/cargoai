@@ -1,135 +1,158 @@
-const quickActions = [
-  { title: "Browse Vehicles", text: "Compare clean listings by type, budget, and availability." },
-  { title: "Continue Booking", text: "Pick up where you left off and confirm your next ride." },
-  { title: "Payment Methods", text: "Manage saved payment options for faster checkout." },
-];
-
-const bookings = [
-  { name: "Toyota Raize", date: "Mar 24 - Mar 27", status: "Upcoming" },
-  { name: "Honda City", date: "Apr 02 - Apr 05", status: "Pending" },
-];
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { clearToken, getAuthUser } from "../../lib/auth";
 
 export default function RenterDashboard() {
+  const nav = useNavigate();
+  const authUser = getAuthUser();
+  const currentUserLabel = authUser?.username || "Renter";
+  const currentUserEmail = authUser?.email || "No email saved";
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  function handleLogout() {
+    clearToken();
+    nav("/login");
+  }
+
+  const renterNavItems = [
+    { label: "Cars", to: "/renter" },
+    { label: "My Bookings", to: "/renter/bookings" },
+    { label: "History", to: "/renter/history" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[var(--cargo-cream)] px-4 py-6 text-[var(--cargo-ink)] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <section className="overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,_#2563eb_0%,_#1d4ed8_55%,_#1e3a8a_100%)] px-5 py-8 text-white shadow-[0_24px_60px_rgba(37,99,235,0.2)] sm:px-8 sm:py-10 lg:px-10">
-          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-100">
-                Renter Dashboard
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-                Plan your next ride with less friction
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-blue-50/90 sm:text-base">
-                Keep your bookings, saved options, and next actions in one place with the
-                same clean, easy-to-scan layout as the landing page.
-              </p>
+    <div className="min-h-screen bg-[var(--cargo-cream)] text-[var(--cargo-ink)]">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+              <NavLink to="/renter" end className="flex items-center gap-3 text-[var(--cargo-ink)]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,_#2563eb,_#1e3a8a)] text-sm font-semibold text-white shadow-lg shadow-blue-200/70">
+                  CA
+                </span>
+                <div>
+                  <p className="text-base font-semibold tracking-tight">CarGoAI Renter</p>
+                  <p className="text-xs text-slate-500">Cars, bookings, and trip history in one place</p>
+                </div>
+              </NavLink>
+
+              <nav className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                {renterNavItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/renter"}
+                    className={({ isActive }) =>
+                      `rounded-full px-4 py-2 transition ${
+                        isActive
+                          ? "bg-[var(--cargo-blue-deep)] text-white shadow-sm"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-              <StatCard value="3" label="Active Bookings" />
-              <StatCard value="2" label="Saved Vehicles" />
-              <StatCard value="24/7" label="Support Access" />
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
-          {quickActions.map((action) => (
-            <article
-              key={action.title}
-              className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.05)]"
-            >
-              <h2 className="text-lg font-semibold text-slate-900">{action.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{action.text}</p>
+            <div ref={menuRef} className="relative ml-auto">
               <button
                 type="button"
-                className="mt-5 rounded-full bg-[var(--cargo-blue-deep)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+                onClick={() => setMenuOpen((open) => !open)}
+                className="flex min-w-[240px] items-center justify-between gap-3 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
               >
-                Open
-              </button>
-            </article>
-          ))}
-        </section>
-
-        <section className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--cargo-blue-bright)]">
-                  Booking Timeline
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                  Your current reservations
-                </h2>
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                View history
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              {bookings.map((booking) => (
-                <div
-                  key={booking.name + booking.date}
-                  className="flex flex-col gap-4 rounded-[1.5rem] bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,_#dbeafe,_#bfdbfe)] text-sm font-semibold text-[var(--cargo-blue-deep)]">
+                    {currentUserLabel.slice(0, 2).toUpperCase()}
+                  </span>
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-900">{booking.name}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{booking.date}</p>
+                    <p className="text-sm font-semibold text-slate-900">{currentUserLabel}</p>
+                    <p className="text-xs text-slate-500">{currentUserEmail}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-[var(--cargo-blue-deep)]">
-                      {booking.status}
-                    </span>
+                </div>
+                <span className={`text-slate-400 transition ${menuOpen ? "rotate-180" : ""}`}>▾</span>
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 mt-3 w-[280px] overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
+                  <div className="border-b border-slate-100 bg-[linear-gradient(135deg,_#eff6ff,_#ffffff)] px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--cargo-blue-bright)]">
+                      Signed in
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-slate-900">{currentUserLabel}</p>
+                    <p className="text-sm text-slate-500">{currentUserEmail}</p>
+                  </div>
+
+                  <div className="p-2">
+                    {[
+                      { label: "Cars", hint: "Browse available vehicles", onClick: () => nav("/renter") },
+                      { label: "My Bookings", hint: "Check active reservations", onClick: () => nav("/renter/bookings") },
+                      { label: "History", hint: "Review completed and cancelled trips", onClick: () => nav("/renter/history") },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          item.onClick();
+                        }}
+                        className="flex w-full items-start justify-between rounded-[1rem] px-3 py-3 text-left hover:bg-slate-50"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{item.label}</p>
+                          <p className="text-xs text-slate-500">{item.hint}</p>
+                        </div>
+                        <span className="mt-0.5 text-slate-300">›</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-slate-100 p-2">
                     <button
                       type="button"
-                      className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                      onClick={handleLogout}
+                      className="flex w-full items-center justify-between rounded-[1rem] px-3 py-3 text-left text-red-600 hover:bg-red-50"
                     >
-                      View details
+                      <span className="text-sm font-semibold">Logout</span>
+                      <span>{">"}</span>
                     </button>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          </article>
+          </div>
+        </div>
+      </header>
 
-          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--cargo-blue-bright)]">
-              Suggested Next Steps
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-              Keep your trip flow simple
-            </h2>
-
-            <div className="mt-6 space-y-3">
-              {[
-                "Review upcoming booking details before pickup.",
-                "Save a preferred payment method for quicker checkout.",
-                "Use support anytime if you need schedule changes.",
-              ].map((item) => (
-                <div key={item} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-                  {item}
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ value, label }) {
-  return (
-    <div className="rounded-[1.5rem] border border-white/15 bg-white/12 px-4 py-4 backdrop-blur">
-      <p className="text-2xl font-semibold text-white">{value}</p>
-      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-blue-100">{label}</p>
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <Outlet />
+      </main>
     </div>
   );
 }

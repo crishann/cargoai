@@ -1,3 +1,6 @@
+import { useNavigate } from "react-router-dom";
+import { clearToken, getAuthUser } from "../../lib/auth";
+
 const adminNavItems = [
   "Dashboard",
   "Subscription Approval",
@@ -16,6 +19,15 @@ const adminStats = [
 ];
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const authUser = getAuthUser();
+  const adminLabel = authUser?.username || "Super Admin";
+
+  function handleLogout() {
+    clearToken();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-[#eef1f4] p-3 text-slate-900 sm:p-4">
       <div className="mx-auto max-w-[1500px] overflow-hidden rounded-[2rem] border border-slate-200 bg-[#f8f8f7] shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
@@ -23,17 +35,37 @@ export default function AdminDashboard() {
           <MobileHeader title="CarGoAI" subtitle="Admin workspace" />
           <SearchBar />
           <MobileNav items={adminNavItems} />
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-100"
+            >
+              <span>Logout</span>
+              <span>{">"}</span>
+            </button>
+          </div>
         </div>
 
         <div className="lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
           <aside className="hidden border-r border-slate-200 bg-[#f3f3f1] p-4 lg:block">
             <DesktopSidebar title="CarGoAI" subtitle="Admin workspace" items={adminNavItems} />
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-100"
+              >
+                <span>Logout</span>
+                <span>{">"}</span>
+              </button>
+            </div>
           </aside>
 
           <main className="p-4 sm:p-5 lg:p-6">
             <header className="flex flex-col gap-4 rounded-[1.5rem] bg-white p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-sm font-semibold">Hey, Admin</p>
+                <p className="text-sm font-semibold">Hey, {adminLabel}</p>
                 <p className="text-xs text-slate-500">Review approvals, payments, and platform health.</p>
               </div>
               <div className="flex flex-wrap gap-2">
