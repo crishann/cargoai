@@ -15,6 +15,14 @@ export function saveAuthSession({ token, user }) {
   }
 }
 
+export function saveAuthUser(user) {
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(USER_KEY);
+  }
+}
+
 export function getToken() {
   return localStorage.getItem(KEY) || "";
 }

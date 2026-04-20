@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { saveAuthSession } from "../../lib/auth";
 import { api } from "../../lib/api";
+import BrandLogo from "../../components/BrandLogo";
 
 const highlights = [
   {
@@ -18,27 +19,6 @@ const highlights = [
     title: "24/7 Chatbot Support",
     text: "Get help anytime with guided assistance before, during, and after every trip.",
     icon: SupportIcon,
-  },
-];
-
-const featuredVehicles = [
-  {
-    name: "Toyota Raize",
-    type: "Compact SUV",
-    price: "From P2,400/day",
-    badge: "Popular",
-  },
-  {
-    name: "Honda City",
-    type: "City Sedan",
-    price: "From P1,950/day",
-    badge: "Best Value",
-  },
-  {
-    name: "Mitsubishi Montero",
-    type: "Family SUV",
-    price: "From P3,600/day",
-    badge: "Road Trip Ready",
   },
 ];
 
@@ -64,7 +44,16 @@ export default function LandingPage({ initialAuthMode = null }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [err, setErr] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationMessage, setVerificationMessage] = useState("");
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [auxModal, setAuxModal] = useState("");
+  const [featuredVehicles, setFeaturedVehicles] = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+  const [featuredError, setFeaturedError] = useState("");
 
   useEffect(() => {
     setAuthMode(initialAuthMode);
@@ -75,8 +64,30 @@ export default function LandingPage({ initialAuthMode = null }) {
     if (nextRole === "owner" || nextRole === "renter") setRole(nextRole);
   }, [searchParams]);
 
+  useEffect(() => {
+    async function loadFeaturedVehicles() {
+      setFeaturedLoading(true);
+      try {
+        const { data } = await api.get("/renter/public/vehicles");
+        setFeaturedVehicles(data?.vehicles || []);
+        setFeaturedError("");
+      } catch (error) {
+        setFeaturedVehicles([]);
+        setFeaturedError(error?.response?.data?.message || "Failed to load rentable vehicles");
+      } finally {
+        setFeaturedLoading(false);
+      }
+    }
+
+    loadFeaturedVehicles();
+  }, []);
+
+  const visibleFeaturedVehicles = useMemo(() => featuredVehicles.slice(0, 3), [featuredVehicles]);
+
   function closeModal() {
     setErr("");
+    setVerificationMessage("");
+    setAuxModal("");
     nav("/");
   }
 
@@ -106,7 +117,11 @@ export default function LandingPage({ initialAuthMode = null }) {
       else if (nextRole === "admin") nav("/admin");
       else nav("/renter");
     } catch (error) {
-      setErr(error?.response?.data?.message || error?.message || "Login failed");
+      const responseData = error?.response?.data;
+      if (responseData?.requiresEmailVerification && responseData?.email) {
+        setVerificationEmail(responseData.email);
+      }
+      setErr(responseData?.message || error?.message || "Login failed");
     }
   }
 
@@ -121,22 +136,52 @@ export default function LandingPage({ initialAuthMode = null }) {
         password: regPassword,
         role,
       });
-      const nextUser = data.user;
-
-      saveAuthSession({
-        token: data.token,
-        user: {
-          id: nextUser?.id,
-          username: nextUser?.username || nextUser?.email || "User",
-          role: nextUser?.role || role,
-          email: nextUser?.email || "",
-        },
-      });
-
-      if (nextUser?.role === "admin") nav("/admin");
-      else nav((nextUser?.role || role) === "owner" ? "/owner" : "/renter");
+      setVerificationEmail(data?.email || String(email).trim().toLowerCase());
+      setVerificationMessage(data?.message || "Check your email to verify your account.");
+      setAuthMode("login");
+      setPassword("");
+      setRegPassword("");
     } catch (error) {
       setErr(error?.response?.data?.message || error?.message || "Register failed");
+    }
+  }
+
+  async function onResendVerification() {
+    setErr("");
+    setVerificationMessage("");
+
+    if (!verificationEmail.trim()) {
+      setErr("Enter your email to resend the verification link.");
+      return;
+    }
+
+    try {
+      const { data } = await api.post("/auth/resend-verification", {
+        email: verificationEmail.trim().toLowerCase(),
+      });
+      setVerificationMessage(data?.message || "Verification email sent.");
+    } catch (error) {
+      setErr(error?.response?.data?.message || error?.message || "Could not resend verification email");
+    }
+  }
+
+  async function onForgotPassword() {
+    setErr("");
+    setVerificationMessage("");
+
+    if (!forgotPasswordEmail.trim()) {
+      setErr("Enter your email to receive a reset link.");
+      return;
+    }
+
+    try {
+      const { data } = await api.post("/auth/forgot-password", {
+        email: forgotPasswordEmail.trim().toLowerCase(),
+      });
+      setVerificationMessage(data?.message || "If that email exists, a reset link has been sent.");
+      setAuxModal("");
+    } catch (error) {
+      setErr(error?.response?.data?.message || error?.message || "Could not send password reset email");
     }
   }
 
@@ -149,13 +194,12 @@ export default function LandingPage({ initialAuthMode = null }) {
         <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-8 sm:pb-24 sm:pt-8 lg:px-12">
           <header className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <Link to="/" className="flex items-center gap-3 text-white">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/95 text-lg shadow-lg shadow-blue-950/20">
-                car
-              </span>
-              <div>
-                <p className="text-xl font-bold tracking-tight">CarGoAI</p>
-                <p className="text-xs text-blue-100">Clean rentals, simple booking</p>
-              </div>
+              <BrandLogo
+                label="CarGoAI"
+                subtitle="Clean rentals, simple booking"
+                imageClassName="border-white/70 bg-white"
+                className="text-white"
+              />
             </Link>
 
             <nav className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -178,9 +222,9 @@ export default function LandingPage({ initialAuthMode = null }) {
 
           <div className="mt-12 grid gap-8 sm:mt-16 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div className="max-w-3xl">
-              <span className="inline-flex rounded-full border border-white/20 bg-white/12 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-blue-50 backdrop-blur">
+              {/* <span className="inline-flex rounded-full border border-white/20 bg-white/12 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-blue-50 backdrop-blur">
                 Premium Car Rental Service
-              </span>
+              </span> */}
               <h1 className="mt-6 text-3xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
                 Find your perfect ride
               </h1>
@@ -320,10 +364,34 @@ export default function LandingPage({ initialAuthMode = null }) {
             </button>
           </div>
 
+          {featuredError ? (
+            <div className="mt-8 rounded-[1.5rem] border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+              {featuredError}
+            </div>
+          ) : null}
+
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
-            {featuredVehicles.map((vehicle, index) => (
+            {featuredLoading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <article
+                  key={`loading-${index}`}
+                  className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]"
+                >
+                  <div className="h-44 animate-pulse bg-slate-100" />
+                  <div className="space-y-3 p-6">
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-slate-100" />
+                    <div className="h-4 w-1/3 animate-pulse rounded bg-slate-100" />
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="h-4 w-1/3 animate-pulse rounded bg-slate-100" />
+                      <div className="h-9 w-24 animate-pulse rounded-full bg-slate-100" />
+                    </div>
+                  </div>
+                </article>
+              ))
+            ) : visibleFeaturedVehicles.length > 0 ? (
+              visibleFeaturedVehicles.map((vehicle, index) => (
               <article
-                key={vehicle.name}
+                key={vehicle.vehicleId}
                 className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]"
               >
                 <div
@@ -335,25 +403,35 @@ export default function LandingPage({ initialAuthMode = null }) {
                         : "bg-[linear-gradient(135deg,_#ede9fe,_#c4b5fd)]"
                   }`}
                 >
+                  {vehicle.imageUrl ? (
+                    <img
+                      src={`http://localhost:5000${vehicle.imageUrl}`}
+                      alt={vehicle.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
                   <div className="flex h-full items-end p-5">
                     <div className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-slate-700 backdrop-blur">
-                      {vehicle.badge}
+                      {index === 0 ? "Popular" : index === 1 ? "Ready to book" : "Available now"}
                     </div>
                   </div>
                 </div>
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-xl font-semibold text-slate-900">{vehicle.name}</h3>
-                      <p className="mt-1 text-sm text-slate-500">{vehicle.type}</p>
+                      <h3 className="text-xl font-semibold text-slate-900">{vehicle.title}</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {vehicle.year}
+                        {vehicle.seatCapacity ? ` • ${vehicle.seatCapacity} seats` : ""}
+                      </p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                      Automatic
+                      {vehicle.status}
                     </span>
                   </div>
                   <div className="mt-5 flex items-center justify-between">
                     <p className="text-sm font-semibold text-[var(--cargo-blue-deep)]">
-                      {vehicle.price}
+                      From P{Number(vehicle.ratePerDay || 0).toLocaleString()}/day
                     </p>
                     <button
                       type="button"
@@ -365,7 +443,12 @@ export default function LandingPage({ initialAuthMode = null }) {
                   </div>
                 </div>
               </article>
-            ))}
+              ))
+            ) : (
+              <div className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500 lg:col-span-3">
+                No rentable vehicles are available right now.
+              </div>
+            )}
           </div>
         </section>
 
@@ -417,6 +500,12 @@ export default function LandingPage({ initialAuthMode = null }) {
               </div>
             )}
 
+            {verificationMessage && (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {verificationMessage}
+              </div>
+            )}
+
             {authMode === "login" ? (
               <form onSubmit={onLogin} className="mt-5 space-y-4">
                 <Field label="Username or Email">
@@ -428,17 +517,40 @@ export default function LandingPage({ initialAuthMode = null }) {
                   />
                 </Field>
                 <Field label="Password">
-                  <input
-                    type="password"
-                    className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-[var(--cargo-blue-bright)]"
+                  <PasswordField
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    showPassword={showLoginPassword}
+                    onTogglePassword={() => setShowLoginPassword((current) => !current)}
                     placeholder="Your password"
                   />
                 </Field>
-                <button className="w-full rounded-2xl bg-[var(--cargo-blue-deep)] py-3 font-semibold text-white hover:opacity-95">
+                <button className="w-full rounded-2xl bg-[var(--cargo-blue-deep)] py-3 font-semibold text-white shadow-[0_14px_30px_rgba(29,78,216,0.22)] transition hover:opacity-95">
                   Sign in
                 </button>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <button
+                    type="button"
+                    className="font-medium text-slate-500 transition hover:text-[var(--cargo-blue-deep)]"
+                    onClick={() => {
+                      setForgotPasswordEmail(usernameOrEmail.includes("@") ? usernameOrEmail : "");
+                      setAuxModal("forgot-password");
+                      setErr("");
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
+                    className="font-medium text-slate-500 transition hover:text-[var(--cargo-blue-deep)]"
+                    onClick={() => {
+                      setAuxModal("resend-verification");
+                      setErr("");
+                    }}
+                  >
+                    Resend verification email
+                  </button>
+                </div>
               </form>
             ) : (
               <form onSubmit={onRegister} className="mt-5 space-y-4">
@@ -462,21 +574,21 @@ export default function LandingPage({ initialAuthMode = null }) {
                   />
                 </Field>
                 <Field label="Password">
-                  <input
-                    type="password"
-                    className="mt-1 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition focus:border-[var(--cargo-blue-bright)]"
+                  <PasswordField
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
+                    showPassword={showRegisterPassword}
+                    onTogglePassword={() => setShowRegisterPassword((current) => !current)}
                     placeholder="Min 6 characters"
                   />
                 </Field>
-                <button className="w-full rounded-2xl bg-[var(--cargo-blue-deep)] py-3 font-semibold text-white hover:opacity-95">
+                <button className="w-full rounded-2xl bg-[var(--cargo-blue-deep)] py-3 font-semibold text-white shadow-[0_14px_30px_rgba(29,78,216,0.22)] transition hover:opacity-95">
                   Create account
                 </button>
               </form>
             )}
 
-            <p className="mt-4 text-sm text-slate-500">
+            <p className="mt-5 text-sm text-slate-500">
               {authMode === "login" ? "No account yet?" : "Already have an account?"}{" "}
               <button
                 type="button"
@@ -489,6 +601,118 @@ export default function LandingPage({ initialAuthMode = null }) {
           </div>
         </div>
       )}
+
+      {authMode === "login" && auxModal ? (
+        <AuxiliaryAuthModal
+          title={auxModal === "resend-verification" ? "Resend verification email" : "Forgot password"}
+          description={
+            auxModal === "resend-verification"
+              ? "Enter the email you used when creating the account. We will send a fresh verification link."
+              : "Enter your account email and we will send a password reset link."
+          }
+          value={auxModal === "resend-verification" ? verificationEmail : forgotPasswordEmail}
+          onChange={(nextValue) =>
+            auxModal === "resend-verification"
+              ? setVerificationEmail(nextValue)
+              : setForgotPasswordEmail(nextValue)
+          }
+          onClose={() => setAuxModal("")}
+          onSubmit={auxModal === "resend-verification" ? onResendVerification : onForgotPassword}
+          submitLabel={auxModal === "resend-verification" ? "Send verification link" : "Send reset link"}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AuxiliaryAuthModal({
+  title,
+  description,
+  value,
+  onChange,
+  onClose,
+  onSubmit,
+  submitLabel,
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl px-3 py-1.5 text-lg text-slate-400 hover:bg-slate-100"
+            aria-label="Close dialog"
+          >
+            x
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[var(--cargo-blue-deep)] shadow-sm">
+              <MailIcon className="h-4 w-4" />
+            </div>
+            <p className="text-sm font-medium text-slate-600">Email address</p>
+          </div>
+          <input
+            type="email"
+            className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-[var(--cargo-blue-bright)]"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="you@email.com"
+          />
+        </div>
+
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            className="flex-1 rounded-2xl bg-[var(--cargo-blue-deep)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(29,78,216,0.22)] transition hover:opacity-95"
+          >
+            {submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PasswordField({
+  value,
+  onChange,
+  showPassword,
+  onTogglePassword,
+  placeholder,
+}) {
+  return (
+    <div className="mt-1 flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2.5 transition focus-within:border-[var(--cargo-blue-bright)]">
+      <input
+        type={showPassword ? "text" : "password"}
+        className="w-full bg-transparent py-0.5 outline-none"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
+      <button
+        type="button"
+        onClick={onTogglePassword}
+        className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+        aria-label={showPassword ? "Hide password" : "Show password"}
+      >
+        {showPassword ? "Hide" : "Show"}
+      </button>
     </div>
   );
 }
@@ -534,6 +758,15 @@ function Field({ label, children }) {
       {label}
       {children}
     </label>
+  );
+}
+
+function MailIcon({ className = "" }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
+      <path d="m5.5 7 6.5 5 6.5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

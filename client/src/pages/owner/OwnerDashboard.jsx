@@ -1,11 +1,12 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearToken, getAuthUser } from "../../lib/auth";
+import BrandLogo from "../../components/BrandLogo";
 
 const ownerNavItems = [
   { label: "Dashboard", to: "/owner" },
   { label: "Bookings", to: "/owner/bookings" },
-  { label: "Vehicle Management", to: "/owner/vehicle-management" },
-  { label: "Vehicle List", to: "/owner/vehicle-list" },
+  { label: "Reviews", to: "/owner/reviews" },
+  { label: "Vehicles", to: "/owner/vehicle-list" },
   { label: "Booking Calendar", to: "/owner/booking-calendar" },
   { label: "Payment Records", to: "/owner/payment-records" },
   { label: "Contract Releasing", to: "/owner/contract-releasing" },
@@ -62,15 +63,11 @@ export default function OwnerDashboard() {
 function MobileHeader({ title, subtitle }) {
   return (
     <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-xs font-bold">
-          OW
-        </span>
-        <div>
-          <p className="text-sm font-semibold">{title}</p>
-          <p className="text-xs text-slate-500">{subtitle}</p>
-        </div>
-      </div>
+      <BrandLogo
+        label={title}
+        subtitle={subtitle}
+        imageClassName="h-9 w-9 rounded-xl border-slate-300"
+      />
       <span className="text-slate-400">+</span>
     </div>
   );
@@ -109,15 +106,11 @@ function DesktopSidebar({ title, subtitle, items }) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-xs font-bold">
-            OW
-          </span>
-          <div>
-            <p className="text-sm font-semibold">{title}</p>
-            <p className="text-xs text-slate-500">{subtitle}</p>
-          </div>
-        </div>
+        <BrandLogo
+          label={title}
+          subtitle={subtitle}
+          imageClassName="h-9 w-9 rounded-xl border-slate-300"
+        />
         <span className="text-slate-400">+</span>
       </div>
 

@@ -92,6 +92,62 @@ async function getVehicleImagesByIds(pool, vehicleIds) {
   return map;
 }
 
+async function getVehicleReviewsByIds(pool, vehicleIds) {
+  if (vehicleIds.length === 0) {
+    return { reviewMap: new Map(), summaryMap: new Map() };
+  }
+
+  const placeholders = vehicleIds.map(() => "?").join(", ");
+  const [rows] = await pool.query(
+    `SELECT
+       rv.review_id,
+       rv.vehicle_id,
+       rv.car_rating,
+       rv.experience_rating,
+       rv.review_text,
+       rv.owner_response,
+       rv.owner_responded_at,
+       rv.created_at,
+       u.username AS renter_username
+     FROM reviews rv
+     INNER JOIN car_renter r ON r.renter_id = rv.renter_id
+     INNER JOIN \`user\` u ON u.user_id = r.user_id
+     WHERE rv.vehicle_id IN (${placeholders})
+     ORDER BY rv.created_at DESC, rv.review_id DESC`,
+    vehicleIds
+  );
+
+  const reviewMap = new Map();
+  const summaryMap = new Map();
+
+  for (const row of rows) {
+    if (!reviewMap.has(row.vehicle_id)) reviewMap.set(row.vehicle_id, []);
+    reviewMap.get(row.vehicle_id).push({
+      reviewId: row.review_id,
+      renterName: row.renter_username || "Renter",
+      carRating: row.car_rating === null ? null : Number(row.car_rating),
+      experienceRating: row.experience_rating === null ? null : Number(row.experience_rating),
+      averageRating: ((Number(row.car_rating || 0) + Number(row.experience_rating || 0)) / 2),
+      reviewText: row.review_text || "",
+      ownerResponse: row.owner_response || "",
+      ownerRespondedAt: row.owner_responded_at,
+      createdAt: row.created_at,
+    });
+
+    if (!summaryMap.has(row.vehicle_id)) {
+      summaryMap.set(row.vehicle_id, { reviewCount: 0, totalAverage: 0, totalCar: 0, totalExperience: 0 });
+    }
+
+    const summary = summaryMap.get(row.vehicle_id);
+    summary.reviewCount += 1;
+    summary.totalCar += Number(row.car_rating || 0);
+    summary.totalExperience += Number(row.experience_rating || 0);
+    summary.totalAverage += (Number(row.car_rating || 0) + Number(row.experience_rating || 0)) / 2;
+  }
+
+  return { reviewMap, summaryMap };
+}
+
 async function deleteImageFiles(imageRows) {
   await Promise.all(
     imageRows.map(async (row) => {
@@ -109,7 +165,9 @@ function parseVehiclePayload(body = {}) {
   const {
     brand,
     model,
+    carType,
     year,
+    seatCapacity,
     plateNumber,
     ratePerDay,
     features = "",
@@ -117,6 +175,7 @@ function parseVehiclePayload(body = {}) {
   } = body;
 
   const parsedYear = Number(year);
+  const parsedSeatCapacity = Number(seatCapacity);
   const parsedRate = Number(ratePerDay);
   const normalizedStatus = ["available", "booked", "maintenance", "inactive"].includes(status)
     ? status
@@ -125,7 +184,9 @@ function parseVehiclePayload(body = {}) {
   return {
     brand: String(brand || "").trim(),
     model: String(model || "").trim(),
+    carType: String(carType || "").trim(),
     year: parsedYear,
+    seatCapacity: parsedSeatCapacity,
     plateNumber: String(plateNumber || "").trim(),
     ratePerDay: parsedRate,
     features: String(features || "").trim(),
@@ -149,7 +210,9 @@ router.get("/", requireAuth, async (req, res) => {
          v.owner_id,
          v.brand,
          v.model,
+         v.car_type,
          v.year,
+         v.seat_capacity,
          v.plate_number,
          v.rate_per_day,
          v.features,
@@ -164,23 +227,40 @@ router.get("/", requireAuth, async (req, res) => {
          ON primary_image.vehicle_id = v.vehicle_id AND primary_image.is_primary = 1
        WHERE v.owner_id = ?
        GROUP BY
-         v.vehicle_id, v.owner_id, v.brand, v.model, v.year, v.plate_number,
+         v.vehicle_id, v.owner_id, v.brand, v.model, v.car_type, v.year, v.seat_capacity, v.plate_number,
          v.rate_per_day, v.features, v.status, v.created_at, primary_image.image_url
        ORDER BY v.created_at DESC, v.vehicle_id DESC`,
       [ownerId]
     );
 
-    const imageMap = await getVehicleImagesByIds(pool, rows.map((row) => row.vehicle_id));
+    const vehicleIds = rows.map((row) => row.vehicle_id);
+    const imageMap = await getVehicleImagesByIds(pool, vehicleIds);
+    const { reviewMap, summaryMap } = await getVehicleReviewsByIds(pool, vehicleIds);
 
     return res.json({
       ownerId,
       vehicles: rows.map((row) => ({
+        reviewSummary: summaryMap.has(row.vehicle_id)
+          ? {
+              reviewCount: summaryMap.get(row.vehicle_id).reviewCount,
+              averageRating: Number((summaryMap.get(row.vehicle_id).totalAverage / summaryMap.get(row.vehicle_id).reviewCount).toFixed(1)),
+              averageCarRating: Number((summaryMap.get(row.vehicle_id).totalCar / summaryMap.get(row.vehicle_id).reviewCount).toFixed(1)),
+              averageExperienceRating: Number((summaryMap.get(row.vehicle_id).totalExperience / summaryMap.get(row.vehicle_id).reviewCount).toFixed(1)),
+            }
+          : {
+              reviewCount: 0,
+              averageRating: null,
+              averageCarRating: null,
+              averageExperienceRating: null,
+            },
         vehicleId: row.vehicle_id,
         ownerId: row.owner_id,
         title: `${row.brand} ${row.model}`.trim(),
         brand: row.brand,
         model: row.model,
+        carType: row.car_type || "",
         year: row.year,
+        seatCapacity: row.seat_capacity === null ? null : Number(row.seat_capacity),
         plateNumber: row.plate_number,
         ratePerDay: Number(row.rate_per_day),
         features: row.features || "",
@@ -188,6 +268,7 @@ router.get("/", requireAuth, async (req, res) => {
         imageUrl: row.primary_image_url || "",
         imageCount: Number(row.image_count || 0),
         images: imageMap.get(row.vehicle_id) || [],
+        reviews: reviewMap.get(row.vehicle_id) || [],
         createdAt: row.created_at,
       })),
     });
@@ -204,8 +285,8 @@ router.post("/", requireAuth, upload.array("images", 3), async (req, res) => {
   const files = req.files || [];
   const payload = parseVehiclePayload(req.body);
 
-  if (!payload.brand || !payload.model || !payload.year || !payload.plateNumber || !payload.ratePerDay) {
-    return res.status(400).json({ message: "brand, model, year, plateNumber and ratePerDay are required" });
+  if (!payload.brand || !payload.model || !payload.carType || !payload.year || !payload.seatCapacity || !payload.plateNumber || !payload.ratePerDay) {
+    return res.status(400).json({ message: "brand, model, carType, year, seatCapacity, plateNumber and ratePerDay are required" });
   }
 
   if (!Number.isInteger(payload.year) || payload.year < 1900) {
@@ -214,6 +295,10 @@ router.post("/", requireAuth, upload.array("images", 3), async (req, res) => {
 
   if (!Number.isFinite(payload.ratePerDay) || payload.ratePerDay <= 0) {
     return res.status(400).json({ message: "ratePerDay must be greater than zero" });
+  }
+
+  if (!Number.isInteger(payload.seatCapacity) || payload.seatCapacity <= 0) {
+    return res.status(400).json({ message: "seatCapacity must be a whole number greater than zero" });
   }
 
   try {
@@ -245,20 +330,24 @@ router.post("/", requireAuth, upload.array("images", 3), async (req, res) => {
            owner_id,
            model,
            brand,
+           car_type,
            year,
+           seat_capacity,
            plate_number,
            rate_per_day,
            features,
            status,
            created_at
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [
-          ownerId,
-          payload.model,
-          payload.brand,
-          payload.year,
-          payload.plateNumber,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+         [
+           ownerId,
+           payload.model,
+           payload.brand,
+           payload.carType,
+           payload.year,
+           payload.seatCapacity,
+           payload.plateNumber,
           payload.ratePerDay.toFixed(2),
           payload.features || null,
           payload.status,
@@ -301,8 +390,8 @@ router.put("/:vehicleId", requireAuth, upload.array("images", 3), async (req, re
     return res.status(400).json({ message: "vehicleId is required" });
   }
 
-  if (!payload.brand || !payload.model || !payload.year || !payload.plateNumber || !payload.ratePerDay) {
-    return res.status(400).json({ message: "brand, model, year, plateNumber and ratePerDay are required" });
+  if (!payload.brand || !payload.model || !payload.carType || !payload.year || !payload.seatCapacity || !payload.plateNumber || !payload.ratePerDay) {
+    return res.status(400).json({ message: "brand, model, carType, year, seatCapacity, plateNumber and ratePerDay are required" });
   }
 
   if (!Number.isInteger(payload.year) || payload.year < 1900) {
@@ -311,6 +400,10 @@ router.put("/:vehicleId", requireAuth, upload.array("images", 3), async (req, re
 
   if (!Number.isFinite(payload.ratePerDay) || payload.ratePerDay <= 0) {
     return res.status(400).json({ message: "ratePerDay must be greater than zero" });
+  }
+
+  if (!Number.isInteger(payload.seatCapacity) || payload.seatCapacity <= 0) {
+    return res.status(400).json({ message: "seatCapacity must be a whole number greater than zero" });
   }
 
   try {
@@ -349,12 +442,14 @@ router.put("/:vehicleId", requireAuth, upload.array("images", 3), async (req, re
 
       await connection.query(
         `UPDATE vehicles
-         SET brand = ?, model = ?, year = ?, plate_number = ?, rate_per_day = ?, features = ?, status = ?
+         SET brand = ?, model = ?, car_type = ?, year = ?, seat_capacity = ?, plate_number = ?, rate_per_day = ?, features = ?, status = ?
          WHERE vehicle_id = ? AND owner_id = ?`,
         [
           payload.brand,
           payload.model,
+          payload.carType,
           payload.year,
+          payload.seatCapacity,
           payload.plateNumber,
           payload.ratePerDay.toFixed(2),
           payload.features || null,
@@ -394,6 +489,67 @@ router.put("/:vehicleId", requireAuth, upload.array("images", 3), async (req, re
     }
   } catch (error) {
     console.error("Vehicle update error:", error);
+    if (isDatabaseUnavailableError(error)) {
+      return res.status(503).json({ message: "database unavailable" });
+    }
+    return res.status(500).json({ message: "server error" });
+  }
+});
+
+router.patch("/:vehicleId/reviews/:reviewId/respond", requireAuth, async (req, res) => {
+  const vehicleId = Number(req.params.vehicleId);
+  const reviewId = Number(req.params.reviewId);
+  const ownerResponse = String(req.body?.ownerResponse || "").trim();
+
+  if (!Number.isInteger(vehicleId) || vehicleId <= 0 || !Number.isInteger(reviewId) || reviewId <= 0) {
+    return res.status(400).json({ message: "valid vehicle and review ids are required" });
+  }
+
+  if (!ownerResponse) {
+    return res.status(400).json({ message: "owner response is required" });
+  }
+
+  try {
+    await initDatabase();
+    const pool = getPool();
+    const ownerId = await getOwnerIdByUserId(pool, req.auth.sub);
+
+    if (!ownerId) {
+      return res.status(403).json({ message: "owner profile not found" });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT review_id
+             , owner_response
+       FROM reviews
+       WHERE review_id = ? AND vehicle_id = ? AND owner_id = ?
+       LIMIT 1`,
+      [reviewId, vehicleId, ownerId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "review not found" });
+    }
+
+    if (String(rows[0].owner_response || "").trim()) {
+      return res.status(409).json({ message: "owner response has already been submitted" });
+    }
+
+    await pool.query(
+      "UPDATE reviews SET owner_response = ?, owner_responded_at = NOW() WHERE review_id = ?",
+      [ownerResponse, reviewId]
+    );
+
+    return res.json({
+      message: "owner response saved",
+      review: {
+        reviewId,
+        vehicleId,
+        ownerResponse,
+      },
+    });
+  } catch (error) {
+    console.error("Owner review response error:", error);
     if (isDatabaseUnavailableError(error)) {
       return res.status(503).json({ message: "database unavailable" });
     }
